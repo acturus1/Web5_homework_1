@@ -26,10 +26,20 @@ def get_map_placec(place, text):
     return response
 
 def get_map_photo(place, points):
+    pt_list = []
+    for color, point_list in points.items():
+        for point in point_list:
+            if color == 'green':
+                pt_list.append(f'{point[0]},{point[1]},pm2gnm')
+            elif color == 'blue':
+                pt_list.append(f'{point[0]},{point[1]},pm2blm')
+            elif color == 'gray':
+                pt_list.append(f'{point[0]},{point[1]},pm2grm')
+    
     map_params = {
         "ll": ','.join(place),
         "apikey": "f3a0fe3a-b07e-4840-a1da-06f18b2ddf13",
-        "pt": '~'.join([f'{point[0]},{point[1]},pm2rdm' for point in points])
+        "pt": '~'.join(pt_list)
     }
     
     map_api_server = "https://static-maps.yandex.ru/v1"
@@ -41,19 +51,31 @@ def main():
     adress = " ".join(sys.argv[1:])
     
     response = get_map_params(adress)
-    print(response.url)
     json_response = response.json()
     toponym_coodrinates = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]["Point"]["pos"]
     toponym_coodrinates = toponym_coodrinates.split(' ')
     
-    text = 'аптека'
+    text = 'Аптека'
     response2 = get_map_placec(toponym_coodrinates, text)
     json_response2 = response2.json()
     
-    points = []
+    points = {}
     for feature in json_response2["features"]:
+        color = 'gray'
+        availabilities = feature['properties'].get('CompanyMetaData', {}).get('Hours', {}).get('Availabilities', [{}])[0]
+        
+        if availabilities:
+            if availabilities.get('TwentyFourHours', False) == True and availabilities.get('Everyday', False) == True:
+                color = 'green'
+            else:
+                color = 'blue'
+        
         point = feature['geometry']['coordinates']
-        points.append([point[0], point[1]])
+        
+        if color not in points:
+            points[color] = []
+        
+        points[color].append([point[0], point[1]])
     
     response3 = get_map_photo(toponym_coodrinates, points)
     
@@ -61,7 +83,7 @@ def main():
     opened_image = Image.open(im)
     opened_image.show()
 
-
-main()
+if __name__ == "__main__":
+    main()
 
 # python 1zadanie.py Москва, ул. Ак. Королева, 12
